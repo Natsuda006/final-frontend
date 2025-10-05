@@ -1,37 +1,16 @@
-const BASE_URL = "https://bookshop-api-er7t.onrender.com/api";
+import api from "./api";
 
-export const getItems = async () => {
-  const response = await fetch(`${BASE_URL}/items`);
-  return response.json();
+const ITEM_API = import.meta.env.VITE_ITEM_URL || "/items";
+
+const ItemApi = {
+  getAll: (params) => api.get(`${ITEM_API}`, { params }),
+  search: (query) => api.get(`${ITEM_API}/search`, { params: { q: query } }),
+  getStatistics: () => api.get(`${ITEM_API}/statistics`),
+  filter: (filters) => api.get(`${ITEM_API}/filter`, { params: filters }),
+  getAvailable: () => api.get(`${ITEM_API}/available`),
+  getByTypeAndId: (type, id) => api.get(`${ITEM_API}/${type}/${id}`),
+  updateStatus: (type, id, status) =>
+    api.patch(`${ITEM_API}/${type}/${id}/status`, { status }),
 };
 
-export const getItemById = async (itemId) => {
-  const response = await fetch(`${BASE_URL}/items/${itemId}`);
-  return response.json();
-};
-
-export const createItem = async (itemData) => {
-  const response = await fetch(`${BASE_URL}/items`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-
-    body: JSON.stringify(itemData),
-  });
-  return response.json();
-};
-
-export const updateItem = async (itemId, itemData) => {
-  const response = await fetch(`${BASE_URL}/items/${itemId}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(itemData),
-  });
-  return response.json();
-};
-
-export const deleteItem = async (itemId) => {
-  const response = await fetch(`${BASE_URL}/items/${itemId}`, {
-    method: "DELETE",
-  });
-  return response.json();
-};
+export default ItemApi;

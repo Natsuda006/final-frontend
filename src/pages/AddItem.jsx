@@ -1,265 +1,258 @@
+// src/pages/AddItem.jsx
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
-import { createItem } from "../api/itemApi";
+import { useNavigate } from "react-router";
+
+import BookService from "../api/bookApi";
+import ComicService from "../api/comicsApi";
+import JournalService from "../api/journalApi";
 
 const AddItem = () => {
   const navigate = useNavigate();
 
-  const initialData = {
-    title: "",
-    author: "",
-    category: "Book",
-    publishYear: "",
-    isbn: "",
-    publisher: "",
-    status: "AVAILABLE",
-    coverImage: "",
-    description: "",
-    location: "",
-    // Book
-    edition: "",
-    pageCount: "",
-    language: "",
-    genre: "",
-    // Journal
-    issn: "",
-    volume: "",
-    issue: "",
-    publicationFrequency: "",
-    // Comic
-    series: "",
-    volumeNumber: "",
-    illustrator: "",
-    colorType: "",
-    targetAge: "",
+  const [type, setType] = useState("");
+  const [formData, setFormData] = useState({});
+
+  const services = {
+    book: BookService,
+    comic: ComicService,
+    journal: JournalService,
   };
 
-  const [itemData, setItemData] = useState(initialData);
+  const handleTypeChange = (e) => {
+    setType(e.target.value);
+    setFormData({});
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setItemData({ ...itemData, [name]: value });
+    setFormData({ ...formData, [name]: value });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (!type) {
+      Swal.fire("Error", "กรุณาเลือกประเภทของหนังสือ", "error");
+      return;
+    }
+
+    const serviceKey = type.toLowerCase();
+    const service = services[serviceKey];
+    if (!service) {
+      Swal.fire("Error", "ประเภทไม่ถูกต้อง", "error");
+      return;
+    }
+
     try {
-      const dataToSend = {
-        ...itemData,
-        publishYear: itemData.publishYear
-          ? parseInt(itemData.publishYear, 10)
-          : null,
-        pageCount:
-          itemData.category === "Book" && itemData.pageCount
-            ? parseInt(itemData.pageCount, 10)
-            : undefined,
-        volumeNumber:
-          itemData.category === "Comic" && itemData.volumeNumber
-            ? parseInt(itemData.volumeNumber, 10)
-            : undefined,
+      let payload = {
+        title: formData.title || "",
+        author: formData.author || "",
+        category: formData.category || "",
+        publishYear: Number(formData.publishYear) || new Date().getFullYear(),
+        isbn: formData.isbn || "",
+        status: "AVAILABLE",
+        coverImage: formData.coverImage || "",
+        description: formData.description || "",
+        location: formData.location || "",
+        addedDate: new Date().toISOString(),
+        itemType: type.charAt(0).toUpperCase() + type.slice(1),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       };
 
-      await createItem(dataToSend);
+      if (serviceKey === "book") {
+        payload = {
+          ...payload,
+          publisher: formData.publisher || "",
+          edition: formData.edition || "",
+          pageCount: Number(formData.pageCount) || 0,
+          language: formData.language || "",
+          genre: formData.genre || "",
+        };
+      }
+
+      if (serviceKey === "journal") {
+        payload = {
+          ...payload,
+          issn: formData.issn || "",
+          volume: formData.volume || "",
+          issue: formData.issue || "",
+          publicationFrequency: formData.publicationFrequency || "",
+          publisher: formData.publisher || "",
+        };
+      }
+
+      if (serviceKey === "comic") {
+        payload = {
+          ...payload,
+          series: formData.series || "",
+          volumeNumber: Number(formData.volumeNumber) || 0,
+          illustrator: formData.illustrator || "",
+          colorType: formData.colorType || "",
+          targetAge: formData.targetAge || "",
+        };
+      }
+
+      await service.create(payload);
 
       Swal.fire({
         icon: "success",
-        title: "เพิ่มหนังสือสำเร็จ!",
-        showConfirmButton: false,
+        title: "สร้างสำเร็จ",
+        text: `${type.charAt(0).toUpperCase() + type.slice(1)} ถูกสร้างเรียบร้อยแล้ว`,
         timer: 1500,
+        showConfirmButton: false,
       });
 
-      setItemData(initialData);
       navigate("/");
     } catch (error) {
-      console.error("Failed to create item", error);
-      Swal.fire({
-        icon: "error",
-        title: "เกิดข้อผิดพลาด",
-        text: error.response?.data?.message || "ไม่สามารถเพิ่มสินค้าได้",
-      });
+      Swal.fire("Error", error.response?.data?.message || error.message, "error");
     }
   };
 
   return (
-    <div className="container mx-auto max-w-3xl p-6">
+    <div className="max-w-3xl mx-auto mt-6">
       <div className="card bg-base-100 shadow-xl p-6">
-        <h1 className="text-2xl font-bold text-center mb-6">➕ เพิ่มสินค้าใหม่</h1>
+        <h1 className="text-2xl font-bold mb-6 text-center">เพิ่มหนังสือใหม่</h1>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* ---- Common Fields ---- */}
-          <div className="form-control">
-            <label className="label">ประเภทสินค้า</label>
-            <select
-              name="category"
-              value={itemData.category}
-              onChange={handleChange}
-              className="select select-bordered"
-            >
-              <option value="Book">หนังสือ (Book)</option>
-              <option value="Journal">วารสาร (Journal)</option>
-              <option value="Comic">การ์ตูน (Comic)</option>
-            </select>
-          </div>
+        {/* เลือกประเภท */}
+        <div className="form-control mb-4">
+          <label className="label">
+            <span className="label-text font-semibold">เลือกประเภทหนังสือ:</span>
+          </label>
+          <select
+            value={type}
+            onChange={handleTypeChange}
+            className="select select-bordered w-full"
+          >
+            <option value="">-- เลือกประเภท --</option>
+            <option value="book">Book</option>
+            <option value="comic">Comic</option>
+            <option value="journal">Journal</option>
+          </select>
+        </div>
 
-          <div className="form-control">
-            <label className="label">ชื่อเรื่อง</label>
-            <input
-              type="text"
-              name="title"
-              value={itemData.title}
-              onChange={handleChange}
-              className="input input-bordered"
-              required
-            />
-          </div>
+        {type && (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* ฟิลด์ทั่วไป */}
+            {[
+              { label: "Title", name: "title" },
+              { label: "Author", name: "author" },
+              { label: "Category", name: "category" },
+              { label: "Publish Year", name: "publishYear", type: "number" },
+              { label: "ISBN", name: "isbn" },
+              { label: "Cover Image URL", name: "coverImage" },
+              { label: "Location", name: "location" },
+              { label: "Description", name: "description", type: "textarea" },
+            ].map((field) => (
+              <div className="form-control" key={field.name}>
+                <label className="label">
+                  <span className="label-text font-semibold">{field.label}:</span>
+                </label>
+                {field.type === "textarea" ? (
+                  <textarea
+                    name={field.name}
+                    value={formData[field.name] || ""}
+                    onChange={handleChange}
+                    className="textarea textarea-bordered w-full"
+                  />
+                ) : (
+                  <input
+                    type={field.type || "text"}
+                    name={field.name}
+                    value={formData[field.name] || ""}
+                    onChange={handleChange}
+                    placeholder={field.name === "coverImage" ? "https://example.com/image.jpg" : ""}
+                    className="input input-bordered w-full"
+                  />
+                )}
+              </div>
+            ))}
 
-          <div className="form-control">
-            <label className="label">ผู้แต่ง</label>
-            <input
-              type="text"
-              name="author"
-              value={itemData.author}
-              onChange={handleChange}
-              className="input input-bordered"
-              required
-            />
-          </div>
+            {/* ฟิลด์เฉพาะ type */}
+            {type === "book" && (
+              <>
+                {[
+                  { label: "Publisher", name: "publisher" },
+                  { label: "Edition", name: "edition" },
+                  { label: "Page Count", name: "pageCount", type: "number" },
+                  { label: "Language", name: "language" },
+                  { label: "Genre", name: "genre" },
+                ].map((field) => (
+                  <div className="form-control" key={field.name}>
+                    <label className="label">
+                      <span className="label-text font-semibold">{field.label}:</span>
+                    </label>
+                    <input
+                      type={field.type || "text"}
+                      name={field.name}
+                      value={formData[field.name] || ""}
+                      onChange={handleChange}
+                      className="input input-bordered w-full"
+                    />
+                  </div>
+                ))}
+              </>
+            )}
 
-          <div className="form-control">
-            <label className="label">URL รูปปก</label>
-            <input
-              type="text"
-              name="coverImage"
-              value={itemData.coverImage}
-              onChange={handleChange}
-              className="input input-bordered"
-            />
-          </div>
+            {type === "comic" && (
+              <>
+                {[
+                  { label: "Series", name: "series" },
+                  { label: "Volume Number", name: "volumeNumber", type: "number" },
+                  { label: "Illustrator", name: "illustrator" },
+                  { label: "Color Type", name: "colorType" },
+                  { label: "Target Age", name: "targetAge" },
+                ].map((field) => (
+                  <div className="form-control" key={field.name}>
+                    <label className="label">
+                      <span className="label-text font-semibold">{field.label}:</span>
+                    </label>
+                    <input
+                      type={field.type || "text"}
+                      name={field.name}
+                      value={formData[field.name] || ""}
+                      onChange={handleChange}
+                      className="input input-bordered w-full"
+                    />
+                  </div>
+                ))}
+              </>
+            )}
 
-          <div className="form-control">
-            <label className="label">ปีที่พิมพ์</label>
-            <input
-              type="number"
-              name="publishYear"
-              value={itemData.publishYear}
-              onChange={handleChange}
-              className="input input-bordered"
-            />
-          </div>
+            {type === "journal" && (
+              <>
+                {[
+                  { label: "ISSN", name: "issn" },
+                  { label: "Volume", name: "volume" },
+                  { label: "Issue", name: "issue" },
+                  { label: "Publication Frequency", name: "publicationFrequency" },
+                  { label: "Publisher", name: "publisher" },
+                ].map((field) => (
+                  <div className="form-control" key={field.name}>
+                    <label className="label">
+                      <span className="label-text font-semibold">{field.label}:</span>
+                    </label>
+                    <input
+                      type="text"
+                      name={field.name}
+                      value={formData[field.name] || ""}
+                      onChange={handleChange}
+                      className="input input-bordered w-full"
+                    />
+                  </div>
+                ))}
+              </>
+            )}
 
-          <div className="form-control">
-            <label className="label">สำนักพิมพ์</label>
-            <input
-              type="text"
-              name="publisher"
-              value={itemData.publisher}
-              onChange={handleChange}
-              className="input input-bordered"
-            />
-          </div>
-
-          <div className="form-control">
-            <label className="label">คำอธิบาย</label>
-            <textarea
-              name="description"
-              value={itemData.description}
-              onChange={handleChange}
-              className="textarea textarea-bordered"
-            ></textarea>
-          </div>
-
-          <div className="divider">รายละเอียดเพิ่มเติม</div>
-
-          {/* ---- Conditional Fields ---- */}
-          {itemData.category === "Book" && (
-            <>
-              <h4 className="font-bold">รายละเอียดหนังสือ</h4>
-              <input
-                name="isbn"
-                value={itemData.isbn}
-                onChange={handleChange}
-                placeholder="ISBN"
-                className="input input-bordered mb-2"
-              />
-              <input
-                name="edition"
-                value={itemData.edition}
-                onChange={handleChange}
-                placeholder="ครั้งที่พิมพ์"
-                className="input input-bordered mb-2"
-              />
-              <input
-                type="number"
-                name="pageCount"
-                value={itemData.pageCount}
-                onChange={handleChange}
-                placeholder="จำนวนหน้า"
-                className="input input-bordered mb-2"
-              />
-            </>
-          )}
-
-          {itemData.category === "Journal" && (
-            <>
-              <h4 className="font-bold">รายละเอียดวารสาร</h4>
-              <input
-                name="issn"
-                value={itemData.issn}
-                onChange={handleChange}
-                placeholder="ISSN"
-                className="input input-bordered mb-2"
-              />
-              <input
-                name="volume"
-                value={itemData.volume}
-                onChange={handleChange}
-                placeholder="เล่มที่"
-                className="input input-bordered mb-2"
-              />
-              <input
-                name="issue"
-                value={itemData.issue}
-                onChange={handleChange}
-                placeholder="ฉบับที่"
-                className="input input-bordered mb-2"
-              />
-            </>
-          )}
-
-          {itemData.category === "Comic" && (
-            <>
-              <h4 className="font-bold">รายละเอียดการ์ตูน</h4>
-              <input
-                name="series"
-                value={itemData.series}
-                onChange={handleChange}
-                placeholder="ชื่อซีรี่ส์"
-                className="input input-bordered mb-2"
-              />
-              <input
-                type="number"
-                name="volumeNumber"
-                value={itemData.volumeNumber}
-                onChange={handleChange}
-                placeholder="เล่มที่ในซีรี่ส์"
-                className="input input-bordered mb-2"
-              />
-              <input
-                name="illustrator"
-                value={itemData.illustrator}
-                onChange={handleChange}
-                placeholder="ผู้วาด"
-                className="input input-bordered mb-2"
-              />
-            </>
-          )}
-
-          <button type="submit" className="btn btn-primary w-full mt-4">
-            ✅ เพิ่มสินค้า
-          </button>
-        </form>
+            {/* ปุ่ม submit */}
+            <div className="form-control mt-6">
+              <button type="submit" className="btn btn-success w-full">
+                เพิ่มหนังสือ
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );
